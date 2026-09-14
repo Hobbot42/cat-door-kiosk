@@ -9,39 +9,52 @@
   html, body { margin:0; height:100%; background:#000; overflow:hidden; }
   video { position:fixed; inset:0; width:100%; height:100%; object-fit:cover; }
   #status {
-    position:fixed; left:0; right:0; bottom:28px; z-index:5;
+    position:fixed; left:0; right:0; bottom:72px; z-index:5;
     text-align:center; color:#fff; font:700 28px sans-serif;
     text-shadow:0 1px 4px #000;
   }
-  button {
+  #go {
     position:fixed; left:50%; top:50%; transform:translate(-50%,-50%); z-index:5;
     font-size:28px; padding:16px 32px;
   }
+  #tones {
+    position:fixed; left:0; right:0; bottom:16px; z-index:5;
+    text-align:center;
+  }
+  #tones button { font-size:20px; margin:0 8px; padding:8px 16px; }
 </style>
 </head>
 <body>
   <video id="vid" playsinline autoplay muted></video>
   <div id="status">Tap start</div>
   <button id="go">Start</button>
+  <div id="tones">
+    <button id="t1800">1800</button>
+    <button id="t15k">15k</button>
+  </div>
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@1.3.1/dist/tf.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@0.8/dist/teachablemachine-image.min.js"></script>
   <script>
   const URL = "./tm-my-image-model/";
   let model, running = false, lastBeep = 0;
+  let freq = Number(localStorage.getItem("freq") || 1800);
   const vid = document.getElementById("vid");
 
   function scare() {
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
     const o = ctx.createOscillator();
     const g = ctx.createGain();
-    o.type = "sawtooth";
-    o.frequency.value = 1800;
-    g.gain.value = 0.9;
+    o.type = "sine";
+    o.frequency.value = freq;
+    g.gain.value = 0.95;
     o.connect(g);
     g.connect(ctx.destination);
     o.start();
-    setTimeout(() => { o.stop(); ctx.close(); }, 900);
+    setTimeout(() => { o.start && o.stop(); ctx.close(); }, 800);
   }
+
+  document.getElementById("t1800").onclick = () => { freq = 1800; localStorage.setItem("freq", freq); scare(); };
+  document.getElementById("t15k").onclick = () => { freq = 15000; localStorage.setItem("freq", freq); scare(); };
 
   document.getElementById("go").onclick = async () => {
     document.getElementById("go").style.display = "none";
@@ -50,7 +63,7 @@
     model = await tmImage.load(URL + "model.json", URL + "metadata.json");
     const stream = await navigator.mediaDevices.getUserMedia({
       audio: false,
-      video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 1920 } }
+      video: { facingMode: { ideal: "environment" } }
     });
     vid.srcObject = stream;
     await vid.play();
