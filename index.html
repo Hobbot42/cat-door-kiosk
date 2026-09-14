@@ -7,11 +7,7 @@
 <title>Cat Door</title>
 <style>
   html, body { margin:0; height:100%; background:#000; overflow:hidden; }
-  video {
-    position:fixed; inset:0;
-    width:100%; height:100%;
-    object-fit:cover;
-  }
+  video { position:fixed; inset:0; width:100%; height:100%; object-fit:cover; }
   #status {
     position:fixed; left:0; right:0; bottom:28px; z-index:5;
     text-align:center; color:#fff; font:700 28px sans-serif;
@@ -33,13 +29,24 @@
   const URL = "./tm-my-image-model/";
   let model, running = false, lastBeep = 0;
   const vid = document.getElementById("vid");
-  const sound = new Audio("https://actions.google.com/sounds/v1/alarms/beep_short.ogg");
+
+  function scare() {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const o = ctx.createOscillator();
+    const g = ctx.createGain();
+    o.type = "sawtooth";
+    o.frequency.value = 1800;
+    g.gain.value = 0.9;
+    o.connect(g);
+    g.connect(ctx.destination);
+    o.start();
+    setTimeout(() => { o.stop(); ctx.close(); }, 900);
+  }
 
   document.getElementById("go").onclick = async () => {
     document.getElementById("go").style.display = "none";
     document.getElementById("status").textContent = "Loading…";
-    await sound.play().catch(()=>{});
-    sound.pause();
+    scare();
     model = await tmImage.load(URL + "model.json", URL + "metadata.json");
     const stream = await navigator.mediaDevices.getUserMedia({
       audio: false,
@@ -61,8 +68,7 @@
       const now = Date.now();
       if (best.className === "MyCat" && best.probability > 0.9 && now - lastBeep > 4000) {
         lastBeep = now;
-        sound.currentTime = 0;
-        sound.play().catch(()=>{});
+        scare();
       }
     }
     if (running) requestAnimationFrame(loop);
