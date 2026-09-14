@@ -4,34 +4,36 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black">
 <title>Cat Door</title>
 <style>
-  html, body { margin:0; height:100%; background:#000; color:#fff; font-family:sans-serif; overflow:hidden; }
-  #cam { position:fixed; inset:0; }
-  #cam canvas { width:100%; height:100%; object-fit:cover; }
+  html, body { margin:0; height:100%; background:#000; overflow:hidden; }
+  video {
+    position:fixed; inset:0;
+    width:100%; height:100%;
+    object-fit:cover;
+  }
   #status {
-    position:fixed; left:0; right:0; bottom:24px;
-    text-align:center; font-size:28px; font-weight:700;
+    position:fixed; left:0; right:0; bottom:28px; z-index:5;
+    text-align:center; color:#fff; font:700 28px sans-serif;
     text-shadow:0 1px 4px #000;
   }
   button {
-    position:fixed; left:50%; top:50%; transform:translate(-50%,-50%);
-    font-size:28px; padding:16px 32px; z-index:5;
+    position:fixed; left:50%; top:50%; transform:translate(-50%,-50%); z-index:5;
+    font-size:28px; padding:16px 32px;
   }
 </style>
 </head>
 <body>
+  <video id="vid" playsinline autoplay muted></video>
   <div id="status">Tap start</div>
   <button id="go">Start</button>
-  <div id="cam"></div>
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@1.3.1/dist/tf.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@0.8/dist/teachablemachine-image.min.js"></script>
   <script>
   const URL = "./tm-my-image-model/";
-  let model, webcam, running = false, lastBeep = 0;
+  let model, running = false, lastBeep = 0;
+  const vid = document.getElementById("vid");
   const sound = new Audio("https://actions.google.com/sounds/v1/alarms/beep_short.ogg");
-  sound.volume = 1;
 
   document.getElementById("go").onclick = async () => {
     document.getElementById("go").style.display = "none";
@@ -39,26 +41,29 @@
     await sound.play().catch(()=>{});
     sound.pause();
     model = await tmImage.load(URL + "model.json", URL + "metadata.json");
-    webcam = new tmImage.Webcam(360, 640, false);
-    await webcam.setup({ facingMode: "environment" });
-    await webcam.play();
-    document.getElementById("cam").appendChild(webcam.canvas);
+    const stream = await navigator.mediaDevices.getUserMedia({
+      audio: false,
+      video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 1920 } }
+    });
+    vid.srcObject = stream;
+    await vid.play();
     running = true;
     loop();
   };
 
   async function loop() {
-    webcam.update();
-    const preds = await model.predict(webcam.canvas);
-    let best = preds[0];
-    for (const p of preds) if (p.probability > best.probability) best = p;
-    document.getElementById("status").textContent =
-      best.className + " " + Math.round(best.probability * 100) + "%";
-    const now = Date.now();
-    if (best.className === "MyCat" && best.probability > 0.9 && now - lastBeep > 4000) {
-      lastBeep = now;
-      sound.currentTime = 0;
-      sound.play().catch(()=>{});
+    if (vid.readyState >= 2) {
+      const preds = await model.predict(vid);
+      let best = preds[0];
+      for (const p of preds) if (p.probability > best.probability) best = p;
+      document.getElementById("status").textContent =
+        best.className + " " + Math.round(best.probability * 100) + "%";
+      const now = Date.now();
+      if (best.className === "MyCat" && best.probability > 0.9 && now - lastBeep > 4000) {
+        lastBeep = now;
+        sound.currentTime = 0;
+        sound.play().catch(()=>{});
+      }
     }
     if (running) requestAnimationFrame(loop);
   }
