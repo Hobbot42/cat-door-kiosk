@@ -18,15 +18,15 @@
     const msg = document.getElementById("msg");
     const v = document.getElementById("v");
     const peer = new Peer();
-    peer.on("open", () => {
+    function tryCall() {
+      msg.textContent = "Calling phone…";
       const call = peer.call("hobbot42-catdoor-2026", new MediaStream());
-      call.on("stream", (s) => {
-        v.srcObject = s;
-        msg.textContent = "Live";
-      });
-      call.on("error", (e) => { msg.textContent = "Call error"; });
-    });
-    peer.on("error", (e) => { msg.textContent = String(e); });
+      if (!call) { setTimeout(tryCall, 2000); return; }
+      call.on("stream", (s) => { v.srcObject = s; msg.textContent = "Live"; });
+      call.on("error", () => setTimeout(tryCall, 2000));
+    }
+    peer.on("open", tryCall);
+    peer.on("error", (e) => { msg.textContent = String(e.type || e); setTimeout(() => location.reload(), 3000); });
   </script>
 </body>
 </html>
