@@ -19,7 +19,7 @@
     const v = document.getElementById("v");
     const peer = new Peer();
     peer.on("open", () => {
-      const call = peer.call("hobbot42-kiosk", new MediaStream());
+      const call = peer.call("hobbot42-catdoor-2026", new MediaStream());
       call.on("stream", (s) => {
         v.srcObject = s;
         msg.textContent = "Live";
