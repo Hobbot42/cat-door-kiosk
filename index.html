@@ -8,17 +8,25 @@
 <style>
   html, body { margin:0; height:100%; background:#000; overflow:hidden; }
   video { position:fixed; inset:0; width:100%; height:100%; object-fit:cover; }
+  #safe {
+    position:fixed; top:0; right:0; bottom:0; width:30%; z-index:4;
+    background:rgba(0,180,80,0.28);
+    border-left:3px solid #0f0;
+    color:#fff; font:700 16px sans-serif;
+    display:flex; align-items:center; justify-content:center;
+    text-shadow:0 1px 3px #000; pointer-events:none;
+  }
   #status {
-    position:fixed; left:0; right:0; bottom:72px; z-index:5;
+    position:fixed; left:0; width:70%; bottom:72px; z-index:5;
     text-align:center; color:#fff; font:700 28px sans-serif;
     text-shadow:0 1px 4px #000;
   }
   #go {
-    position:fixed; left:50%; top:50%; transform:translate(-50%,-50%); z-index:5;
+    position:fixed; left:35%; top:50%; transform:translate(-50%,-50%); z-index:5;
     font-size:28px; padding:16px 32px;
   }
   #tones {
-    position:fixed; left:0; right:0; bottom:16px; z-index:5;
+    position:fixed; left:0; width:70%; bottom:16px; z-index:5;
     text-align:center;
   }
   #tones button { font-size:20px; margin:0 8px; padding:8px 16px; }
@@ -26,6 +34,7 @@
 </head>
 <body>
   <video id="vid" playsinline autoplay muted></video>
+  <div id="safe">SAFE</div>
   <div id="status">Tap start</div>
   <button id="go">Start</button>
   <div id="tones">
@@ -37,8 +46,10 @@
   <script>
   const URL = "./tm-my-image-model/";
   let model, running = false, lastBeep = 0;
-  let freq = Number(localStorage.getItem("freq") || 1800);
+  let freq = Number(localStorage.getItem("freq") || 15000);
   const vid = document.getElementById("vid");
+  const crop = document.createElement("canvas");
+  const ctx2 = crop.getContext("2d");
 
   function scare() {
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -50,7 +61,7 @@
     o.connect(g);
     g.connect(ctx.destination);
     o.start();
-    setTimeout(() => { o.start && o.stop(); ctx.close(); }, 800);
+    setTimeout(() => { o.stop(); ctx.close(); }, 800);
   }
 
   document.getElementById("t1800").onclick = () => { freq = 1800; localStorage.setItem("freq", freq); scare(); };
@@ -73,7 +84,11 @@
 
   async function loop() {
     if (vid.readyState >= 2) {
-      const preds = await model.predict(vid);
+      const w = vid.videoWidth, h = vid.videoHeight;
+      crop.width = Math.floor(w * 0.7);
+      crop.height = h;
+      ctx2.drawImage(vid, 0, 0, crop.width, h, 0, 0, crop.width, h);
+      const preds = await model.predict(crop);
       let best = preds[0];
       for (const p of preds) if (p.probability > best.probability) best = p;
       document.getElementById("status").textContent =
