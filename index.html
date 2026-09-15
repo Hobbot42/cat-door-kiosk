@@ -39,7 +39,7 @@
   </div>
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@1.3.1/dist/tf.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@0.8/dist/teachablemachine-image.min.js"></script>
-  <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+  <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
   <script>
   const URL = "./tm-my-image-model/";
   let model, running = false, lastBeep = 0;
@@ -47,6 +47,8 @@
   const vid = document.getElementById("vid");
   const crop = document.createElement("canvas");
   const ctx2 = crop.getContext("2d");
+  const snap = document.createElement("canvas");
+  const sctx = snap.getContext("2d");
 
   function scare() {
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -82,11 +84,15 @@
     });
     vid.srcObject = stream;
     await vid.play();
-    const peer = new Peer("hobbot42-catdoor-2026");
-    peer.on("open", () => {
-      document.getElementById("status").textContent = "Ready to view";
+    const client = mqtt.connect("wss://broker.hivemq.com:8884/mqtt");
+    client.on("connect", () => {
+      setInterval(() => {
+        if (vid.readyState < 2) return;
+        snap.width = 320; snap.height = 180;
+        sctx.drawImage(vid, 0, 0, 320, 180);
+        client.publish("hobbot42/catdoor/snap", snap.toDataURL("image/jpeg", 0.5));
+      }, 2000);
     });
-    peer.on("call", (call) => call.answer(stream));
     running = true;
     loop();
   };
