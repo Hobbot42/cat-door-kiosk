@@ -6,27 +6,34 @@
 <title>Cat Door View</title>
 <style>
   html, body { margin:0; background:#111; color:#eee; font-family:sans-serif; }
-  img { width:100%; max-height:85vh; object-fit:contain; background:#000; }
+  video { width:100%; max-height:85vh; background:#000; }
   #msg { padding:12px; }
 </style>
 </head>
 <body>
-  <div id="msg">Waiting for snapshots…</div>
-  <img id="pic" alt="door">
-  <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+  <div id="msg">Connecting…</div>
+  <video id="v" autoplay playsinline muted></video>
+  <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
   <script>
+    const ROOM = "catdoor-v3";
+    const PEER_CFG = { host:"0.peerjs.com", port:443, path:"/", secure:true };
     const msg = document.getElementById("msg");
-    const pic = document.getElementById("pic");
-    const client = mqtt.connect("wss://broker.hivemq.com:8884/mqtt");
-    client.on("connect", () => {
-      client.subscribe("hobbot42/catdoor/snap");
-      msg.textContent = "Connected, waiting for phone…";
+    const v = document.getElementById("v");
+    const dummy = document.createElement("canvas");
+    dummy.width = 2; dummy.height = 2;
+    dummy.getContext("2d").fillRect(0, 0, 2, 2);
+    const dummyStream = dummy.captureStream(1);
+    const peer = new Peer(PEER_CFG);
+    peer.on("open", () => {
+      msg.textContent = "Calling phone…";
+      const call = peer.call(ROOM, dummyStream);
+      call.on("stream", (s) => {
+        v.srcObject = s;
+        msg.textContent = "Live";
+      });
+      call.on("error", (e) => { msg.textContent = String(e); });
     });
-    client.on("message", (t, p) => {
-      pic.src = p.toString();
-      msg.textContent = "Live snapshot " + new Date().toLocaleTimeString();
-    });
-    client.on("error", (e) => { msg.textContent = String(e); });
+    peer.on("error", (e) => { msg.textContent = String(e.type || e); });
   </script>
 </body>
 </html>
