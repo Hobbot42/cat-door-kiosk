@@ -39,16 +39,16 @@
   </div>
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@1.3.1/dist/tf.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@0.8/dist/teachablemachine-image.min.js"></script>
-  <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+  <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
   <script>
   const URL = "./tm-my-image-model/";
+  const ROOM = "catdoor-v3";
+  const PEER_CFG = { host:"0.peerjs.com", port:443, path:"/", secure:true };
   let model, running = false, lastBeep = 0;
   let freq = Number(localStorage.getItem("freq") || 15000);
   const vid = document.getElementById("vid");
   const crop = document.createElement("canvas");
   const ctx2 = crop.getContext("2d");
-  const snap = document.createElement("canvas");
-  const sctx = snap.getContext("2d");
 
   function scare() {
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -75,30 +75,25 @@
 
   document.getElementById("go").onclick = async () => {
     document.getElementById("go").style.display = "none";
-    document.getElementById("status").textContent = "Loading…";
+    document.getElementById("status").textContent = "Camera…";
     scare();
-    model = await tmImage.load(URL + "model.json", URL + "metadata.json");
     const stream = await navigator.mediaDevices.getUserMedia({
       audio: false,
       video: { facingMode: { ideal: "environment" } }
     });
     vid.srcObject = stream;
     await vid.play();
-    const client = mqtt.connect("wss://broker.hivemq.com:8884/mqtt");
-    client.on("connect", () => {
-      setInterval(() => {
-        if (vid.readyState < 2) return;
-        snap.width = 320; snap.height = 180;
-        sctx.drawImage(vid, 0, 0, 320, 180);
-        client.publish("hobbot42/catdoor/snap", snap.toDataURL("image/jpeg", 0.5));
-      }, 2000);
-    });
+    const peer = new Peer(ROOM, PEER_CFG);
+    peer.on("open", () => { document.getElementById("status").textContent = "Room open"; });
+    peer.on("call", (call) => call.answer(stream));
+    peer.on("error", (e) => { document.getElementById("status").textContent = String(e.type || e); });
+    model = await tmImage.load(URL + "model.json", URL + "metadata.json");
     running = true;
     loop();
   };
 
   async function loop() {
-    if (vid.readyState >= 2) {
+    if (model && vid.readyState >= 2) {
       const w = vid.videoWidth, h = vid.videoHeight;
       if (w) {
         crop.width = Math.floor(w * 0.7);
